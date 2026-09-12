@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#030712">
+  <title>AIXPERO v5.0</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-gray-950 text-white flex flex-col h-screen font-sans">
+
+<!-- =====================================================
+     HEADER
+===================================================== -->
+
+<header class="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center">
+  <div class="flex items-center gap-3">
+    <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+    <div>
+      <h1 class="text-xl font-bold tracking-wider text-indigo-400">
+        AIXPERO <span class="text-xs text-gray-400 font-normal">v5.0</span>
+      </h1>
+      <div class="text-[10px] text-gray-500">
+        AI Assistant • Vision • Voice
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-2">
+    <button onclick="toggleCamera()" class="text-gray-300 hover:text-white p-3 rounded-lg bg-gray-800 active:bg-gray-700" title="Camera">
+      <i class="fas fa-camera"></i>
+    </button>
+
+    <button onclick="document.getElementById('imageInput').click()" class="text-gray-300 hover:text-white p-3 rounded-lg bg-gray-800 active:bg-gray-700" title="Upload Image">
+      <i class="fas fa-image"></i>
+    </button>
+
+    <button onclick="toggleSettings()" class="text-gray-300 hover:text-white p-3 rounded-lg bg-gray-800 active:bg-gray-700" title="Settings">
+      <i class="fas fa-cog"></i>
+    </button>
+  </div>
+</header>
+
+<!-- =====================================================
+     SETTINGS MODAL
+===================================================== -->
+
+<div id="settingsModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+  <div class="bg-gray-900 p-6 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl">
+    <h2 class="text-xl font-bold text-indigo-400 mb-5">
+      AIXPERO API Settings
+    </h2>
+
+    <label class="block text-sm text-gray-400 mb-2">
+      Groq API Key
+    </label>
+
+    <input type="password" id="apiKeyInput" placeholder="gsk_..." autocomplete="off" spellcheck="false" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500">
+
+    <p class="text-xs text-gray-500 mt-2">
+      API key is stored locally in this browser.
+    </p>
+
+    <div class="flex justify-end gap-2 mt-6">
+      <button onclick="clearApiKey()" class="px-4 py-2 bg-red-700 hover:bg-red-600 rounded-lg">
+        Clear
+      </button>
+
+      <button onclick="toggleSettings()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg">
+        Cancel
+      </button>
+
+      <button onclick="saveApiKey()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold">
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================
+     IMAGE INPUT
+===================================================== -->
+
+<input type="file" id="imageInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+
+<!-- =====================================================
+     CAMERA
+===================================================== -->
+
+<section id="cameraContainer" class="hidden bg-black border-b border-gray-800">
+  <div class="relative w-full">
+    <video id="webcam" autoplay playsinline muted class="w-full h-64 object-cover"></video>
+
+    <div class="absolute top-3 left-3 bg-black/70 px-3 py-2 rounded-lg text-xs text-emerald-400">
+      <i class="fas fa-circle text-[8px] mr-1"></i> CAMERA ACTIVE
+    </div>
+
+    <button onclick="toggleCamera()" class="absolute top-3 right-3 bg-red-600 hover:bg-red-500 px-3 py-2 rounded-lg text-xs">
+      <i class="fas fa-times"></i> Close
+    </button>
+  </div>
+
+  <div class="p-3 bg-gray-900 flex gap-2">
+    <button onclick="captureAndAnalyze()" id="visionBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-semibold disabled:opacity-50">
+      <i class="fas fa-eye mr-2"></i> Analyze Camera
+    </button>
+
+    <button onclick="capturePhotoOnly()" class="bg-gray-700 hover:bg-gray-600 px-5 rounded-xl" title="Take Photo">
+      <i class="fas fa-camera-retro"></i>
+    </button>
+  </div>
+</section>
+
+<!-- =====================================================
+     IMAGE PREVIEW
+===================================================== -->
+
+<div id="imagePreviewContainer" class="hidden bg-gray-900 border-b border-gray-800 p-3">
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-sm text-cyan-400 font-semibold">
+      <i class="fas fa-image mr-1"></i> Image Ready for AI
+    </span>
+
+    <button onclick="clearImage()" class="text-red-400 hover:text-red-300 text-sm">
+      Remove
+    </button>
+  </div>
+
+  <img id="imagePreview" class="w-full max-h-72 object-contain rounded-xl border border-gray-700 bg-black" alt="Selected image">
+
+  <button onclick="analyzeSelectedImage()" id="imageAnalyzeBtn" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-semibold disabled:opacity-50">
+    <i class="fas fa-brain mr-2"></i> Ask AIXPERO About This Image
+  </button>
+</div>
+
+<!-- =====================================================
+     CHAT
+===================================================== -->
+
+<main id="chatLog" class="flex-1 overflow-y-auto p-4 space-y-4">
+  <div class="bg-gray-900 border border-gray-800 p-4 rounded-2xl max-w-md">
+    <p class="text-gray-300 text-sm">
+      <span class="text-indigo-400 font-bold">AIXPERO v5.0</span> is ready.
+      <br><br>
+      📷 Open the camera and press <b>Analyze Camera</b>.
+      <br>
+      🖼️ Or upload an image.
+      <br>
+      🧠 AIXPERO Vision can analyze what it sees.
+    </p>
+  </div>
+</main>
+
+<!-- =====================================================
+     INPUT
+===================================================== -->
+
+<footer class="p-3 bg-gray-900 border-t border-gray-800">
+  <form id="chatForm" onsubmit="handleSend(event)" class="flex gap-2">
+    <button type="button" onclick="startVoiceInput()" id="micBtn" class="bg-gray-800 hover:bg-gray-700 px-4 rounded-xl" title="Voice input">
+      <i class="fas fa-microphone"></i>
+    </button>
+
+    <input type="text" id="userInput" placeholder="Ask AIXPERO anything..." autocomplete="off" spellcheck="false" class="flex-1 min-w-0 bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500">
+
+    <button type="submit" id="sendBtn" class="bg-indigo-600 hover:bg-indigo-500 px-5 rounded-xl font-semibold disabled:cursor-not-allowed">
+      <span id="sendText">Send</span>
+      <i id="sendIcon" class="fas fa-paper-plane ml-1"></i>
+    </button>
+  </form>
+</footer>
+
+<!-- =====================================================
+     JAVASCRIPT
+===================================================== -->
+
+<script>
+
+/* =====================================================
+   SUPABASE CONFIGURATION
+===================================================== */
+const SUPABASE_URL = "https://kujciimszxvdlvrccilv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_XA2Nsgvi6fG7ozY6HWV3bQ_X2zni-7u";
+
+// Supabase client setup
+const _supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+if (_supabase) {
+  console.log("✅ Supabase initialized successfully!");
+}
+
+/* =====================================================
+   GROQ CONFIG
+===================================================== */
+
+const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const TEXT_MODEL = "openai/gpt-oss-20b";
+const VISION_MODEL = "qwen/qwen3.6-27b";
+const MAX_OUTPUT_TOKENS = 800;
+
+let apiKey = localStorage.getItem("groq_api_key") || "";
+let cameraStream = null;
+let selectedImageData = null;
+let conversation = [];
+let requestInProgress = false;
+
+/* =====================================================
+   LOAD API KEY
+===================================================== */
+
+if (apiKey) {
+  document.getElementById("apiKeyInput").value = apiKey;
+}
+
+/* =====================================================
+   SETTINGS
+===================================================== */
+
+function toggleSettings() {
+  document.getElementById("settingsModal").classList.toggle("hidden");
+}
+
+/* =====================================================
+   SAVE API KEY
+===================================================== */
+
+function saveApiKey() {
+  const value = document.getElementById("apiKeyInput").value.trim();
+
+  if (!value) {
+    alert("Please enter your Groq API key.");
+    return;
+  }
+
+  if (!value.startsWith("gsk_")) {
+    alert("Groq API key normally starts with gsk_.");
+    return;
+  }
+
+  apiKey = value;
+  localStorage.setItem("groq_api_key", apiKey);
+  toggleSettings();
+  appendMessage("ai", "✅ API key saved. AIXPERO is ready.");
+}
+
+/* =====================================================
+   CLEAR API KEY
+===================================================== */
+
+function clearApiKey() {
+  localStorage.removeItem("groq_api_key");
+  apiKey = "";
+  document.getElementById("apiKeyInput").value = "";
+  alert("API key removed.");
+}
+
+/* =====================================================
+   CHECK API KEY
+===================================================== */
+
+function checkApiKey() {
+  if (!apiKey) {
+    alert("Pehle Settings ⚙️ mein Groq API Key add karein.");
+    toggleSettings();
+    return false;
+  }
+  return true;
+}
+
+/* =====================================================
+   CLEAN AI OUTPUT
+===================================================== */
+
+function cleanAIResponse(text) {
+  if (!text) return "";
+  let cleaned = String(text);
+
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  cleaned = cleaned.replace(/<analysis>[\s\S]*?<\/analysis>/gi, "");
+  cleaned = cleaned.replace(/^\s*(analysis|reasoning|chain of thought)\s*:\s*/i, "");
+  cleaned = cleaned.replace(/^\s*\*\*(analysis|reasoning|self-correction)\s*:?\*\*\s*/gim, "");
+  cleaned = cleaned.replace(/^\s*\*+\s*Self-Correction\s*:?\s*/gim, "");
+  cleaned = cleaned.replace(/^\s*Self-Correction\s*:?\s*/gim, "");
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  cleaned = cleaned.trim();
+
+  return cleaned;
+}
+
+/* =====================================================
+   CAMERA START / STOP
+===================================================== */
+
+async function toggleCamera() {
+  const container = document.getElementById("cameraContainer");
+  const video = document.getElementById("webcam");
+
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+    video.srcObject = null;
+    container.classList.add("hidden");
+    return;
+  }
+
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Camera is not supported by this browser.");
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+
+    video.srcObject = cameraStream;
+    container.classList.remove("hidden");
+
+    try {
+      await video.play();
+    } catch (playError) {
+      console.warn("Video autoplay warning:", playError);
+    }
+  } catch (error) {
+    console.error("Camera Error:", error);
+    let message = "Camera Access Error.";
+
+    if (error.name === "NotAllowedError") {
+      message = "Camera permission denied. Browser settings mein camera permission allow karein.";
+    } else if (error.name === "NotFoundError") {
+      message = "Camera device nahi mila.";
+    } else if (error.name === "NotReadableError") {
+      message = "Camera kisi aur app mein use ho raha hai.";
+    } else if (error.message) {
+      message = "Camera Access Error: " + error.message;
+    }
+
+    alert(message);
+  }
+}
+
+/* =====================================================
+   CAPTURE CAMERA FRAME
+===================================================== */
+
+function captureCameraFrame() {
+  const video = document.getElementById("webcam");
+
+  if (!cameraStream || !video.videoWidth || !video.videoHeight) {
+    throw new Error("Camera is not ready yet. Please wait a moment.");
+  }
+
+  const canvas = document.createElement("canvas");
+  const maxWidth = 1280;
+  let width = video.videoWidth;
+  let height = video.videoHeight;
+
+  if (width > maxWidth) {
+    const ratio = maxWidth / width;
+    width = maxWidth;
+    height = Math.round(height * ratio);
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.drawImage(video, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
+/* =====================================================
+   CAPTURE PHOTO ONLY
+===================================================== */
+
+function capturePhotoOnly() {
+  try {
+    const image = captureCameraFrame();
+    showImagePreview(image);
+    appendMessage("ai", "📸 Photo captured. Press 'Ask AIXPERO About This Image' to analyze it.");
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+/* =====================================================
+   CAPTURE + ANALYZE CAMERA
+===================================================== */
+
+async function captureAndAnalyze() {
+  if (requestInProgress) return;
+  if (!checkApiKey()) return;
+
+  try {
+    const image = captureCameraFrame();
+    showImagePreview(image);
+    await analyzeImage(
+      image,
+      "Describe what you can see in this camera image. Identify important objects, people, visible text, colors, surroundings, and useful details. Read visible text carefully when possible. Do not guess unknown facts. Give only the final answer to the user; do not show internal reasoning."
+    );
+  } catch (error) {
+    console.error(error);
+    appendMessage("ai", "❌ Camera Vision Error: " + error.message);
+  }
+}
+
+/* =====================================================
+   IMAGE UPLOAD
+===================================================== */
+
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("Please select an image file.");
+    event.target.value = "";
+    return;
+  }
+
+  const maxSize = 10 * 1024 * 1024;
+  if (file.size > maxSize) {
+    alert("Image is too large. Please choose an image under 10 MB.");
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const imageData = e.target.result;
+    showImagePreview(imageData);
+  };
+  reader.onerror = function() {
+    alert("Could not read the image.");
+  };
+  reader.readAsDataURL(file);
+}
+
+/* =====================================================
+   SHOW IMAGE PREVIEW
+===================================================== */
+
+function showImagePreview(imageData) {
+  selectedImageData = imageData;
+  const container = document.getElementById("imagePreviewContainer");
+  const image = document.getElementById("imagePreview");
+
+  image.src = imageData;
+  container.classList.remove("hidden");
+
+  setTimeout(function() {
+    container.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 100);
+}
+
+/* =====================================================
+   CLEAR IMAGE
+===================================================== */
+
+function clearImage() {
+  selectedImageData = null;
+  document.getElementById("imagePreviewContainer").classList.add("hidden");
+  document.getElementById("imagePreview").removeAttribute("src");
+  document.getElementById("imageInput").value = "";
+}
+
+/* =====================================================
+   ANALYZE SELECTED IMAGE
+===================================================== */
+
+async function analyzeSelectedImage() {
+  if (requestInProgress) return;
+  if (!checkApiKey()) return;
+  if (!selectedImageData) {
+    alert("Pehle camera photo ya image select karein.");
+    return;
+  }
+
+  const input = document.getElementById("userInput");
+  const question = input.value.trim();
+  const prompt = question || "What do you see in this image? Describe the important details clearly. Read visible text when possible. Do not guess unknown facts. Give only the final answer.";
+
+  appendMessage("user", "🖼️ " + prompt);
+  input.value = "";
+
+  await analyzeImage(selectedImageData, prompt);
+}
+
+/* =====================================================
+   AI VISION REQUEST
+===================================================== */
+
+async function analyzeImage(imageData, prompt) {
+  if (!checkApiKey()) return;
+  if (requestInProgress) return;
+
+  requestInProgress = true;
+  const visionBtn = document.getElementById("visionBtn");
+  const imageAnalyzeBtn = document.getElementById("imageAnalyzeBtn");
+
+  if (visionBtn) visionBtn.disabled = true;
+  if (imageAnalyzeBtn) imageAnalyzeBtn.disabled = true;
+
+  const loadingId = appendMessage("ai", "👁️ AIXPERO Vision is analyzing the image...");
+
+  try {
+    const response = await fetch(GROQ_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + apiKey
+      },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: "You are AIXPERO Vision, an intelligent visual AI assistant. Analyze the supplied image carefully. Describe only information that can reasonably be observed. Read visible text accurately when possible. Do not invent or guess unclear details. If something is uncertain, say that it is unclear. Answer the user's question directly. If the user speaks Roman Urdu or Urdu, answer naturally in the same style. IMPORTANT: Never reveal internal reasoning, chain-of-thought, hidden analysis, self-correction, or <think> content. Return only the final answer for the user."
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: imageData } }
+            ]
+          }
+        ],
+        temperature: 0.4,
+        max_completion_tokens: MAX_OUTPUT_TOKENS
+      })
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      throw new Error("API ne valid response nahi diya.");
+    }
+
+    if (!response.ok) {
+      const message = data?.error?.message || data?.error?.code || "Unknown Vision API error";
+      updateMessage(loadingId, "❌ Vision API Error (" + response.status + "): " + message);
+
+      if (response.status === 401) {
+        localStorage.removeItem("groq_api_key");
+        apiKey = "";
+        appendMessage("ai", "⚠️ API key invalid ho sakti hai. Settings ⚙️ mein key dobara check karein.");
+      }
+      return;
+    }
+
+    let reply = data?.choices?.[0]?.message?.content;
+    reply = cleanAIResponse(reply);
+
+    if (!reply) {
+      updateMessage(loadingId, "❌ Vision model ne clean response nahi diya.");
+      return;
+    }
+
+    updateMessage(loadingId, reply);
+  } catch (error) {
+    console.error("Vision Connection Error:", error);
+    updateMessage(loadingId, "❌ Vision Connection Error: " + error.message);
+  } finally {
+    requestInProgress = false;
+    if (visionBtn) visionBtn.disabled = false;
+    if (imageAnalyzeBtn) imageAnalyzeBtn.disabled = false;
+  }
+}
+
+/* =====================================================
+   NORMAL TEXT CHAT
+===================================================== */
+
+async function handleSend(event) {
+  event.preventDefault();
+
+  if (requestInProgress) return;
+
+  const input = document.getElementById("userInput");
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  if (selectedImageData) {
+    await analyzeSelectedImage();
+    return;
+  }
+
+  if (!checkApiKey()) return;
+
+  appendMessage("user", text);
+  input.value = "";
+
+  conversation.push({ role: "user", content: text });
+
+  if (conversation.length > 20) {
+    conversation = conversation.slice(-20);
+  }
+
+  const loadingId = appendMessage("ai", "Thinking...");
+  setSendLoading(true);
+  requestInProgress = true;
+
+  try {
+    const response = await fetch(GROQ_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + apiKey
+      },
+      body: JSON.stringify({
+        model: TEXT_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: "You are AIXPERO, a helpful, intelligent and friendly AI assistant. Answer accurately, clearly and naturally. If the user writes Urdu or Roman Urdu, respond naturally in the same language. Do not reveal internal reasoning, chain-of-thought, hidden analysis, or <think> content. Return only the final answer for the user."
+          },
+          ...conversation
+        ],
+        temperature: 0.7,
+        max_completion_tokens: MAX_OUTPUT_TOKENS
+      })
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      throw new Error("API ne valid response nahi diya.");
+    }
+
+    if (!response.ok) {
+      const message = data?.error?.message || data?.error?.code || "Unknown API error";
+      updateMessage(loadingId, "❌ API Error (" + response.status + "): " + message);
+      conversation.pop();
+
+      if (response.status === 401) {
+        localStorage.removeItem("groq_api_key");
+        apiKey = "";
+        appendMessage("ai", "⚠️ API key invalid ho sakti hai. Settings ⚙️ mein key check karein.");
+      }
+      return;
+    }
+
+    let reply = data?.choices?.[0]?.message?.content;
+    reply = cleanAIResponse(reply);
+
+    if (!reply) {
+      updateMessage(loadingId, "❌ AI ne koi clean response nahi diya.");
+      conversation.pop();
+      return;
+    }
+
+    conversation.push({ role: "assistant", content: reply });
+    updateMessage(loadingId, reply);
+  } catch (error) {
+    console.error("Text Connection Error:", error);
+    conversation.pop();
+    updateMessage(loadingId, "❌ Connection Error: " + error.message);
+  } finally {
+    requestInProgress = false;
+    setSendLoading(false);
+  }
+}
+
+/* =====================================================
+   SEND BUTTON LOADING
+===================================================== */
+
+function setSendLoading(loading) {
+  const button = document.getElementById("sendBtn");
+  const text = document.getElementById("sendText");
+  const icon = document.getElementById("sendIcon");
+
+  if (loading) {
+    button.disabled = true;
+    button.classList.add("opacity-60");
+    text.textContent = "Thinking";
+    icon.className = "fas fa-spinner fa-spin ml-1";
+  } else {
+    button.disabled = false;
+    button.classList.remove("opacity-60");
+    text.textContent = "Send";
+    icon.className = "fas fa-paper-plane ml-1";
+  }
+}
+
+/* =====================================================
+   VOICE INPUT
+===================================================== */
+
+function startVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    alert("Aap ke browser/device par Voice Recognition support nahi hai.");
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  const micBtn = document.getElementById("micBtn");
+
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+
+  try {
+    recognition.start();
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+
+  micBtn.classList.add("bg-red-600", "animate-pulse");
+
+  recognition.onresult = function(event) {
+    const transcript = event.results[0][0].transcript;
+    document.getElementById("userInput").value = transcript;
+  };
+
+  recognition.onerror = function(event) {
+    console.error("Voice Error:", event.error);
+  };
+
+  recognition.onend = function() {
+    micBtn.classList.remove("bg-red-600", "animate-pulse");
+  };
+}
+
+/* =====================================================
+   CHAT MESSAGE
+===================================================== */
+
+function appendMessage(role, text) {
+  const chatLog = document.getElementById("chatLog");
+  const div = document.createElement("div");
+  const id = "msg-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+
+  div.id = id;
+
+  if (role === "user") {
+    div.className = "bg-indigo-600 text-white p-4 rounded-2xl max-w-md ml-auto text-sm shadow";
+  } else {
+    div.className = "bg-gray-900 text-gray-200 p-4 rounded-2xl max-w-md border border-gray-800 text-sm shadow";
+  }
+
+  div.innerText = text;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+
+  return id;
+}
+
+/* =====================================================
+   UPDATE MESSAGE
+===================================================== */
+
+function updateMessage(id, text) {
+  const element = document.getElementById(id);
+  if (!element) return;
+
+  element.innerText = text;
+  const chatLog = document.getElementById("chatLog");
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+</script>
+</body>
+</html>
