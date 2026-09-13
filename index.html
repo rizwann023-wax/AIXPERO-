@@ -30,13 +30,17 @@
       <h1 class="text-xl font-bold tracking-wider text-indigo-400">
         AIXPERO <span class="text-xs text-gray-400 font-normal">v5.0</span>
       </h1>
-      <div class="text-[10px] text-gray-500">
-        AI Assistant • Vision • Voice
+      <div id="userBadge" class="text-[10px] text-gray-500">
+        Guest User
       </div>
     </div>
   </div>
 
   <div class="flex gap-2">
+    <button id="authBtn" onclick="toggleAuthModal()" class="text-indigo-400 hover:text-indigo-300 p-2 px-3 text-xs font-semibold rounded-lg bg-gray-800 border border-indigo-500/30 active:bg-gray-700" title="Account">
+      <i class="fas fa-user-circle mr-1"></i> Login
+    </button>
+
     <button onclick="toggleCamera()" class="text-gray-300 hover:text-white p-3 rounded-lg bg-gray-800 active:bg-gray-700" title="Camera">
       <i class="fas fa-camera"></i>
     </button>
@@ -50,6 +54,60 @@
     </button>
   </div>
 </header>
+
+<!-- =====================================================
+     AUTHENTICATION MODAL (LOGIN / SIGNUP)
+===================================================== -->
+
+<div id="authModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+  <div class="bg-gray-900 p-6 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl relative">
+    
+    <button onclick="toggleAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+      <i class="fas fa-times"></i>
+    </button>
+
+    <!-- USER LOGGED IN VIEW -->
+    <div id="loggedInView" class="hidden text-center py-4">
+      <i class="fas fa-user-check text-4xl text-emerald-400 mb-3"></i>
+      <h2 class="text-lg font-bold text-white mb-1">Welcome Back!</h2>
+      <p id="userEmailDisplay" class="text-sm text-indigo-300 mb-6"></p>
+      
+      <button onclick="handleLogout()" class="w-full bg-red-600 hover:bg-red-500 py-3 rounded-xl font-semibold text-white">
+        <i class="fas fa-sign-out-alt mr-2"></i> Log Out
+      </button>
+    </div>
+
+    <!-- AUTH FORM (LOGIN / SIGNUP) -->
+    <div id="authFormView">
+      <h2 id="authTitle" class="text-xl font-bold text-indigo-400 mb-4">
+        Login to AIXPERO
+      </h2>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Email Address</label>
+          <input type="email" id="authEmail" placeholder="your@email.com" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Password</label>
+          <input type="password" id="authPassword" placeholder="••••••••" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <button onclick="handleAuthSubmit()" id="authSubmitBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-semibold text-white mt-2">
+          Login
+        </button>
+
+        <div class="text-center mt-4">
+          <button onclick="toggleAuthMode()" id="authToggleText" class="text-xs text-indigo-400 hover:underline">
+            Don't have an account? Sign Up
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <!-- =====================================================
      SETTINGS MODAL
@@ -152,11 +210,11 @@
     <p class="text-gray-300 text-sm">
       <span class="text-indigo-400 font-bold">AIXPERO v5.0</span> is ready.
       <br><br>
-      📷 Open the camera and press <b>Analyze Camera</b>.
+      🔑 Login to sync your profile and chat history!
       <br>
-      🖼️ Or upload an image.
+      📷 Open camera & press <b>Analyze Camera</b>.
       <br>
-      🧠 AIXPERO Vision can analyze what it sees.
+      🖼️ Or upload an image to analyze.
     </p>
   </div>
 </main>
@@ -187,15 +245,143 @@
 <script>
 
 /* =====================================================
-   SUPABASE CONFIGURATION
+   SUPABASE CONFIGURATION & AUTH
 ===================================================== */
 const SUPABASE_URL = "https://kujciimszxvdlvrccilv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_XA2Nsgvi6fG7ozY6HWV3bQ_X2zni-7u";
 
-// Supabase client setup
 const _supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-if (_supabase) {
-  console.log("✅ Supabase initialized successfully!");
+
+let currentUser = null;
+let isSignUpMode = false;
+
+// Check existing session on startup
+window.addEventListener('DOMContentLoaded', async () => {
+  if (_supabase) {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (session?.user) {
+      updateUserUI(session.user);
+      loadUserChatHistory(session.user.id);
+    }
+  }
+});
+
+function toggleAuthModal() {
+  document.getElementById("authModal").classList.toggle("hidden");
+}
+
+function toggleAuthMode() {
+  isSignUpMode = !isSignUpMode;
+  document.getElementById("authTitle").textContent = isSignUpMode ? "Sign Up for AIXPERO" : "Login to AIXPERO";
+  document.getElementById("authSubmitBtn").textContent = isSignUpMode ? "Sign Up" : "Login";
+  document.getElementById("authToggleText").textContent = isSignUpMode ? "Already have an account? Login" : "Don't have an account? Sign Up";
+}
+
+async function handleAuthSubmit() {
+  if (!_supabase) {
+    alert("Supabase is not initialized correctly.");
+    return;
+  }
+
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value.trim();
+
+  if (!email || !password) {
+    alert("Please enter both email and password.");
+    return;
+  }
+
+  const btn = document.getElementById("authSubmitBtn");
+  btn.disabled = true;
+  btn.textContent = "Processing...";
+
+  try {
+    if (isSignUpMode) {
+      const { data, error } = await _supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      alert("Sign up successful! Please log in.");
+      toggleAuthMode();
+    } else {
+      const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      updateUserUI(data.user);
+      toggleAuthModal();
+      appendMessage("ai", "✅ Logged in as " + data.user.email);
+      loadUserChatHistory(data.user.id);
+    }
+  } catch (err) {
+    alert("Auth Error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = isSignUpMode ? "Sign Up" : "Login";
+  }
+}
+
+async function handleLogout() {
+  if (_supabase) {
+    await _supabase.auth.signOut();
+  }
+  currentUser = null;
+  document.getElementById("loggedInView").classList.add("hidden");
+  document.getElementById("authFormView").classList.remove("hidden");
+  document.getElementById("authBtn").innerHTML = `<i class="fas fa-user-circle mr-1"></i> Login`;
+  document.getElementById("userBadge").textContent = "Guest User";
+  toggleAuthModal();
+  appendMessage("ai", "ℹ️ You have been logged out.");
+}
+
+function updateUserUI(user) {
+  currentUser = user;
+  document.getElementById("loggedInView").classList.remove("hidden");
+  document.getElementById("authFormView").classList.add("hidden");
+  document.getElementById("userEmailDisplay").textContent = user.email;
+  document.getElementById("authBtn").innerHTML = `<i class="fas fa-user-check text-emerald-400 mr-1"></i> Account`;
+  document.getElementById("userBadge").textContent = user.email.split('@')[0];
+}
+
+/* =====================================================
+   SUPABASE CHAT DATABASE SYNC
+===================================================== */
+
+async function saveMessageToSupabase(role, messageText) {
+  if (!_supabase || !currentUser) return;
+
+  try {
+    await _supabase.from('chats').insert([
+      {
+        user_id: currentUser.id,
+        role: role,
+        message: messageText
+      }
+    ]);
+  } catch (e) {
+    console.error("Supabase Save Error:", e);
+  }
+}
+
+async function loadUserChatHistory(userId) {
+  if (!_supabase) return;
+
+  try {
+    const { data, error } = await _supabase
+      .from('chats')
+      .select('role, message')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      data.forEach(item => {
+        appendMessage(item.role === 'user' ? 'user' : 'ai', item.message);
+        if (item.role === 'user' || item.role === 'assistant') {
+          conversation.push({ role: item.role === 'user' ? 'user' : 'assistant', content: item.message });
+        }
+      });
+    }
+  } catch (e) {
+    console.error("Supabase Fetch Error:", e);
+  }
 }
 
 /* =====================================================
@@ -495,6 +681,7 @@ async function analyzeSelectedImage() {
   const prompt = question || "What do you see in this image? Describe the important details clearly. Read visible text when possible. Do not guess unknown facts. Give only the final answer.";
 
   appendMessage("user", "🖼️ " + prompt);
+  saveMessageToSupabase("user", "🖼️ " + prompt);
   input.value = "";
 
   await analyzeImage(selectedImageData, prompt);
@@ -572,6 +759,7 @@ async function analyzeImage(imageData, prompt) {
     }
 
     updateMessage(loadingId, reply);
+    saveMessageToSupabase("ai", reply);
   } catch (error) {
     console.error("Vision Connection Error:", error);
     updateMessage(loadingId, "❌ Vision Connection Error: " + error.message);
@@ -604,6 +792,7 @@ async function handleSend(event) {
   if (!checkApiKey()) return;
 
   appendMessage("user", text);
+  saveMessageToSupabase("user", text);
   input.value = "";
 
   conversation.push({ role: "user", content: text });
@@ -668,6 +857,7 @@ async function handleSend(event) {
 
     conversation.push({ role: "assistant", content: reply });
     updateMessage(loadingId, reply);
+    saveMessageToSupabase("ai", reply);
   } catch (error) {
     console.error("Text Connection Error:", error);
     conversation.pop();
