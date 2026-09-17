@@ -745,13 +745,22 @@ async function loadUserChatHistory(userId) {
 const GROQ_ENDPOINT =
   "https://api.groq.com/openai/v1/chat/completions";
 
-/* UPDATED TEXT MODEL */
+/*
+  CURRENT GROQ TEXT MODEL
+*/
 const TEXT_MODEL =
   "openai/gpt-oss-20b";
 
-/* VISION MODEL KEPT SAME */
+/*
+  CURRENT GROQ VISION MODEL
+  FIXED FROM OLD:
+  llama-3.2-11b-vision-preview
+
+  TO:
+  qwen/qwen3.6-27b
+*/
 const VISION_MODEL =
-  "llama-3.2-11b-vision-preview";
+  "qwen/qwen3.6-27b";
 
 const MAX_OUTPUT_TOKENS = 800;
 
@@ -1666,7 +1675,6 @@ async function handleSend(event) {
           body:
             JSON.stringify({
 
-              /* NEW GROQ TEXT MODEL */
               model:
                 TEXT_MODEL,
 
